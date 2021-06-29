@@ -1,0 +1,604 @@
+---
+title: "A Report on CO2 Emissions and Energy Usage"
+subtitle: "ETC5513 Assignment 3: Star Wars"
+author:
+- familyname: Faizan
+  othernames: Mohammed
+  address: Monash University
+  email: mfai0014@student.monash.edu
+  correspondingauthor: true
+  qualifications:  MBAt
+- familyname: More
+  othernames: Adarsh
+  address: Monash University
+  email: amor0060@student.monash.edu
+  qualifications: MBAt
+- familyname: LI
+  othernames: Yanhui
+  address: Monash University
+  email: yli807@student.monash.edu
+  correspondingauthor: true
+  qualifications:  MBAt
+department: Our consultancy - Star Wars\newline Mohammed Faizan &\newline Adarsh More&\newline Yanhui LI
+organization: Monash University
+bibliography: 
+- references.bib
+- packages.bib
+biblio-style: authoryear-comp
+linestretch: 1.5
+output:
+  bookdown::pdf_document2:
+    template: monashreport2.tex
+    fig_caption: yes
+    fig_height: 5
+    fig_width: 8
+    includes:
+      in_header: preamble.tex
+    keep_tex: yes
+    number_sections: yes
+    citation_package: biblatex
+    toc: true
+keep_md: true
+---
+
+```{r echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(fig.path = "Figures/", fig.align ="center",
+                      out.width = "50%", echo = FALSE, 
+                      messages = FALSE, 
+                      warning = FALSE)
+
+# Loading Libraries
+library(tidyverse)
+library(readr)
+library(kableExtra)
+library(tinytex)
+library(bookdown)
+library(naniar)
+library(visdat)
+library(citation)
+library(knitr)
+library(scales)
+library(patchwork)
+```
+
+```{r writing_packages_bibliographies}
+knitr::write_bib(c(.packages()), "packages.bib")
+```
+
+
+```{r reading-data}
+all_countries <- read.csv('Data/Assignment3_data.csv')
+```
+
+
+\newpage
+\section{CO2 Emissions and Energy Usage}
+\addcontentsline{toc}{subsection}{Introduction}
+\subsection*{Introduction}
+We have been living in this world for such a long time now. Indeed, we cannot imagine the precious resources that are bestowed upon us by nature. However, we humans have caused grave damage and disrupted natural cycles through energy exploitation and accompanied emissions. Countries have been competing to generate energy and exploit other resources, thus boosting their economies. Alas, this comes at a cost; carbon emissions that fuel climate change. Damage from climate change is expected to go far beyond drought, melting ice sheets and crop failures. 
+
+This report is an analysis on the carbon footprint(@caronfootprint) of countries to answer the inherent questions about the trends in carbon dioxide emission and energy usage.
+
+\newpage
+\subsection{Country USA and China}
+
+
+<!-- 
+The below r code chunk explores the data to see the various categories within each variable and to ensure that all countries have records spanning from 1960 to 2018. Exploratory data analysis also provides for the missingness in the data. -->
+
+```{r eda, eval = FALSE}
+length(unique(all_countries$Country_Name)) #264  countries
+unique(all_countries$Year) # data spans from 1960 to 2018, 59 years
+year_count <- all_countries%>%count(Country_Name) #obs years are same for all countries 
+unique(all_countries$Region) 
+combine_words(unique(all_countries$Region))
+combine_words(unique(all_countries$IncomeGroup))
+pct_miss(all_countries)
+pct_miss_case(all_countries) #15.43% missingness 
+pct_miss_var(all_countries)
+vis_miss(all_countries)
+miss_case_summary(all_countries)
+miss_case_table(all_countries)
+miss_var_summary(all_countries)
+miss_var_table(all_countries)
+#need to impute values to income_group and region 
+```
+
+```{r filter-section1-data}
+section1_usa_china <- all_countries %>% filter(Country_Name %in% c("USA","China"))
+```
+
+```{r missing_section_data, eval=FALSE}
+pct_miss(section1_usa_china) #3.14% missingness in the USA and China data
+pct_miss_case(section1_usa_china)
+pct_miss_var(section1_usa_china)
+vis_miss(section1_usa_china)
+miss_case_summary(section1_usa_china)
+miss_case_table(section1_usa_china)
+miss_var_summary(section1_usa_china)
+miss_var_table(section1_usa_china)
+```
+
+```{r imputing missing values}
+section1_china <- section1_usa_china %>% filter(Country_Name =="China") %>%
+  simputation::impute_lm(CO2_emissions_metric_tons_per_capita~Year+Urban_population) %>%
+  simputation::impute_lm(Energy_use_kg_of_oil_equivalent_per_capita~Year+Urban_population+CO2_emissions_metric_tons_per_capita) 
+
+  
+
+section1_usa <- section1_usa_china %>% filter(Country_Name =="USA") %>% simputation::impute_lm(CO2_emissions_metric_tons_per_capita~Year+Urban_population) %>%
+  simputation::impute_lm(Energy_use_kg_of_oil_equivalent_per_capita~Year+Urban_population+CO2_emissions_metric_tons_per_capita) 
+
+section1_usa_china <- section1_usa %>% rbind(section1_china)
+
+section1_usa_china <- section1_usa_china %>% 
+  mutate(c02_emission = CO2_emissions_metric_tons_per_capita * Urban_population)
+```
+
+
+```{r total_carbon_emissions, fig.cap="Total CO2 Emissions", include=FALSE}
+#y axis in million tonnes
+section1_usa_china %>% mutate(c02_emission=c02_emission/907185, Urban_population = Urban_population/100000) %>%
+  ggplot() +
+  geom_line(mapping = aes(x=Year, y=c02_emission, colour = Country_Name)) + 
+  geom_col(mapping = aes(x=Year, y=Urban_population, fill = Country_Name, alpha = 0.3)) +
+  labs(title = "CO2 Emissions", x = "Year", y = "C02 Emissions in Metric Tonnes") +
+    scale_y_continuous(sec.axis = sec_axis(~.*1, name = "Population in 100k") ,label=label_number_si(unit = "")) + 
+  scale_x_continuous()
+
+section1_usa_china %>% mutate(c02_emission=c02_emission/907185) %>%
+  ggplot() +
+  geom_col(mapping = aes(x=Country_Name, y=c02_emission, fill = Country_Name)) + 
+  scale_y_continuous(label=label_number_si(unit = "")) + 
+  labs(title = "CO2 Emissions", x = "Country", y = "C02 Emissions in Metric Tonnes")
+```
+
+
+
+In terms of economies, USA and China have dominated this millennial, striving to compete in all sectors. @Carbon_footprint_countries suggests that they contribute to almost half of the world's carbon footprint, 15% and 28% respectively. As such, it is only reasonable to analyze carbon footprint trend for these countries. 
+
+1) Which country has contributed more to the carbon footprint over the years? Compare the carbon emissions of these countries.
+
+The figure \ref{fig:total_carbon_emissions} (CO2 emissions represented by line graph) shows that, from the early 2000s, China witnesses an exponential growth in CO2 emissions surpassing USA in 2010, probably owing to its economic growth(@economicgrowth) and the massive difference in the population of USA and China. On the contrary, USA had a dip in emissions and a steady population growth. However, cumulatively from 1960, emissions from USA far exceed than that of China. 
+
+\begin{figure}[H]
+\includegraphics[width=7in, height = 2.5in]{Figures/total_carbon_emissions-1}
+\includegraphics[width=7in, height = 2.5in]{Figures/total_carbon_emissions-2}
+\caption{Total CO2 Emissions}
+\label{fig:total_carbon_emissions}
+\end{figure}
+
+2) Research on the energy sources of each country and its impact and justify if per capita energy usage is an apt factor for comparision of these two countries. Which country has a better carbon footprint?
+
+Sustainable development has been recognized as an important goal by several countries. Emissions from sustainable sources such as biomass combustion are lower than fossil fuel combustion. Clean energy reduces environmental pollution, thus, improving public health, reducing premature mortality and saving on related health costs and will play a major role in combating climate change. The figure \ref{fig:energyusage_vs_co2emission} shows that CO2 emissions are proportional to the energy usage. The articles, @eia_US and @eia_China, show the energy distributions in both countries. It can be noted that China, though having lower per capita energy consumption contributes more to the carbon footprint that US, presently. This is because it is heavily dependent on coal whereas US has a higher dependence on natural gas, a clean energy source. Therefore, currently, US has a better carbon footprint.
+
+The figure \ref{fig:proportion_countries_yearly} and the table \@ref(tab:EnergyConsumptionComparision) show that the per capita energy consumption and CO2 emissions have been dominated severely by the US. The boxplot \ref{fig:distributionco2emissionenergyusageboxplot} shows that per capita energy usage and CO2 emission is higher for US in comparision to China. However, we know from above that it is due to the population difference between the two countries and China is considerably dependent on the non-clean energy sources. Therefore, scaling the energy usage and CO2 emission to per capita is not a correct measure to compare countries that have a huge population difference. 
+
+For more insights on the CO2 emissions from different countries, please refer @countriesC02emissions.
+
+
+```{r energyusage_vs_co2emission, fig.cap="Energy Usage vs Carbon Emissions", include=FALSE}
+section1_usa_china %>% ggplot() + 
+  geom_point(mapping = aes(x=Energy_use_kg_of_oil_equivalent_per_capita,  y=CO2_emissions_metric_tons_per_capita,
+                           colour = Country_Name,
+                           alpha = 0.3)) +
+  labs(title = "Energy Usage vs Carbon Emissions", y = "CO2 Emissions MT per capita", x = "Energy Usage kg of oil per capita")
+```
+
+\begin{figure}[H]
+\includegraphics[width=7in, height = 2in]{Figures/energyusage_vs_co2emission-1}
+\caption{Energy Usage vs Carbon Emissions}
+\label{fig:energyusage_vs_co2emission}
+\end{figure}
+
+```{r section1_usa_china_long, include=FALSE}
+section1_usa_china_long <- section1_usa_china %>% pivot_longer(cols=c(CO2_emissions_metric_tons_per_capita , Energy_use_kg_of_oil_equivalent_per_capita), names_to = "impact_variable", values_to = "measure")
+```
+```{r proportion_countries_yearly, fig.cap="Proportion Share Across The Years", include=FALSE}
+section1_usa_china_long %>% ggplot() +
+  geom_col(mapping = aes(x = Year, y = measure, fill = Country_Name), position="fill")+facet_wrap(~impact_variable, nrow = 2)+ylab("Proportion")
+```
+\begin{figure}[H]
+\includegraphics[width=6in, height = 2in]{Figures/proportion_countries_yearly-1}
+\caption{Proportion Share Across The Years}
+\label{fig:proportion_countries_yearly}
+\end{figure}
+
+\begin{figure}[H]
+\includegraphics[width=7in, height = 3in]{Figures/distributionco2emissionenergyusageboxplot-1}
+\caption{Distribution of CO2 Emissions and Energy Usage}
+\label{fig:distributionco2emissionenergyusageboxplot}
+\end{figure}
+
+
+
+
+```{r EnergyConsumptionComparision, tab.cap = "Energy Consumption Comparision"}
+section1_usa_china %>% 
+  pivot_wider(id_cols = c(Year),
+              names_from = Country_Name,
+              values_from = Energy_use_kg_of_oil_equivalent_per_capita) %>%
+  filter(Year >= 2008) %>% arrange(desc(Year)) %>%
+  knitr::kable(caption = "Energy Consumption Comparision")
+```
+
+```{r distributionco2emissionenergyusageboxplot, fig.cap="Distribution of CO2 Emissions and Energy Usage", include=FALSE}
+
+p1 <- section1_usa_china %>%ggplot()+geom_boxplot(mapping = aes(y = CO2_emissions_metric_tons_per_capita, x = Country_Name, group = Country_Name),position = "dodge")
+
+p2 <- section1_usa_china %>%ggplot()+geom_boxplot(mapping = aes(y = Energy_use_kg_of_oil_equivalent_per_capita, x = Country_Name, group = Country_Name),position = "dodge")
+
+p1+p2
+```
+```{r distribution_co2emission_energyusage_hist, eval=FALSE}
+section1_usa_china %>% ggplot() +
+  geom_histogram(mapping = aes(x = CO2_emissions_metric_tons_per_capita, fill = Country_Name), binwidth = 5)+facet_wrap(~Country_Name, nrow=2, scales="free")+coord_flip() 
+#us produces more carbon 
+
+section1_usa_china %>% ggplot() +
+  geom_histogram(mapping = aes(x = Energy_use_kg_of_oil_equivalent_per_capita, fill = Country_Name),  binwidth = 500)+facet_wrap(~Country_Name, nrow=2, scales="free")+coord_flip()
+#us produces more carbon 
+```
+```{r co2emission_trend, eval = FALSE}
+section1_usa_china%>%ggplot()+geom_line(mapping = aes(x=Year, y=CO2_emissions_metric_tons_per_capita, colour = Country_Name, alpha = 0.3))+scale_x_continuous()
+```
+
+```{r energyusage_trend, eval=FALSE}
+section1_usa_china%>%ggplot()+geom_path(mapping = aes(x=Year, y=Energy_use_kg_of_oil_equivalent_per_capita, colour = Country_Name, alpha = 0.3))+scale_alpha_continuous()
+```
+\newpage
+\subsection{Country Chile and Canada}
+
+
+
+This section of the report focuses on the CO2 emissions(metric tonnes per capita) and energy usage(kg of oil equivalent per capita) for countries, Chile and Canada. The research questions addressed are the comparison of both countries on the basis of trend of CO2 emissions over the years and to determine which country has performed better with respect to CO2 emissions as well as energy usage.
+
+
+```{r, filter-section2-data}
+section2_chile_canada <- all_countries %>% filter(Country_Name %in% c("Chile", "Canada"), na.rm = TRUE)
+```
+
+```{r filter-country-data}
+Chile_data <- section2_chile_canada %>% 
+  filter(Country_Name %in% c("Chile"), na.rm = TRUE)
+
+Canada_data <- section2_chile_canada %>% 
+  filter(Country_Name %in% c("Canada"), na.rm = TRUE)
+```
+
+
+Table analysis of both countries
+
+
+```{r chile, tab.cap="CO2 Emissions of Chile"}
+summary_chile <- Chile_data %>% 
+  dplyr::select(CO2_emissions_metric_tons_per_capita) %>%
+  summary() %>% 
+  knitr::kable(caption = "CO2 Emissions of Chile") %>% 
+         kable_styling(latex_options = "hold_position")
+
+summary_chile
+```
+
+
+```{r canada, tab.cap="CO2 Emissions of Canada"}
+summary_canada <- Canada_data %>% 
+  dplyr::select(CO2_emissions_metric_tons_per_capita) %>%
+  summary() %>% 
+  knitr::kable(caption = "CO2 Emissions of Canada") %>% 
+         kable_styling(latex_options = "hold_position")
+
+summary_canada
+```
+
+
+It can be seen from table \@ref(tab:chile), that the mean CO2 emissions of Chile are 2.823 metric tons per capita while table \@ref(tab:canada) shows Canada's mean CO2 emissions are 15.78 metric tons per capita. Both countries have a rising population but Chile has a better performance in terms of CO2 emissions.
+
+
+Figure analysis of both countries
+
+```{r emissions, fig.cap= "CO2 Emissions over the years", warning=FALSE}
+plot_emissions <- section2_chile_canada %>% 
+  ggplot(section2_chile_canada, mapping =  aes(x = Year, y = CO2_emissions_metric_tons_per_capita, fill = Country_Name)) +
+  geom_bar(stat = "identity",
+           position = "dodge") +
+  theme_bw() +
+  xlab("Year") +
+  ylab("CO2 Emissions per capita") +
+  ggtitle("CO2 Emissions over the years")
+plot_emissions
+```
+
+The figure \@ref(fig:emissions) represents the trend of CO2 emissions per capita of countries Chile and Canada.
+
+
+```{r energy, fig.cap= "Energy usage per capita over the years", warning=FALSE}
+plot_energy_usage <- section2_chile_canada%>% 
+  ggplot(section2_chile_canada, mapping =  aes(
+    x = Year, 
+    y = Energy_use_kg_of_oil_equivalent_per_capita, 
+    color = Country_Name)) +
+  geom_line() +
+  theme_bw() +
+  xlab("Year") +
+  ylab("Energy Usage per capita") +
+  ggtitle("Energy usage per capita over the years")
+plot_energy_usage
+```
+
+The figure \@ref(fig:energy) represents the trend of Energy usage per capita of countries Chile and Canada.
+
+```{r plot, fig.cap= "CO2 emissions and Energy usage per capita", warning=FALSE}
+plot_3 <- section2_chile_canada %>% 
+  ggplot(section2_chile_canada, mapping = aes(
+    x = Energy_use_kg_of_oil_equivalent_per_capita,
+    y = CO2_emissions_metric_tons_per_capita, 
+    color = Country_Name)) +
+  geom_point(size = 4) +
+  theme_bw() +
+  xlab("Energy Usage Per Capita") +
+  ylab("CO2 Emissions per capita") +
+  ggtitle("CO2 emissions and Energy usage per capita")
+plot_3
+```
+
+Figure \@ref(fig:emissions) and Figure \@ref(fig:energy) represent the trend of CO2 emissions and Energy usage per capita of Canada and Chile respectively. It can be observed that Chile has a better performance as it had less emissions and energy usage. Figure \@ref(fig:plot) represents CO2 emissions and energy usage per capita of both countries.
+
+To conclude, table \@ref(tab:chile), table \@ref(tab:canada) and \@ref(fig:emissions) represented the comparison of CO2 emissions in Chile and Canada, where Chile performed better. Figures \@ref(fig:energy) and \@ref(fig:plot) represented the overall measures of CO2 emissions and energy usage of both countries, where again Chile's measures were better. According to @joo2015energy, the reason for CO2 emissions in Chile are because of its dependence on carbon energy consumption for its rising economic growth.
+
+
+
+\subsection{Country United Arab Emirates and Singapore}
+
+```{r filter-section3-data,echo = FALSE}
+section3_uae_sgp <- all_countries %>% 
+  filter(Country_Name %in% c("United Arab Emirates", "Singapore"))
+```
+
+```{r,echo = FALSE}
+section3_uae_sgp_long <- section3_uae_sgp %>% 
+  pivot_longer(cols=c(CO2_emissions_metric_tons_per_capita , Energy_use_kg_of_oil_equivalent_per_capita), names_to = "impact_variable", values_to = "measure")
+```
+
+```{r uae-sgp-data,echo = FALSE}
+section3_uae <- section3_uae_sgp %>% 
+  filter(Country_Name %in% c("United Arab Emirates"), na.rm = TRUE)
+
+section3_sgp<- section3_uae_sgp %>% 
+  filter(Country_Name %in% c("Singapore"), na.rm = TRUE)
+```
+
+Table analysis
+
+Table \@ref(tab:uae) shows the mean per capita of co2 emission and energy use of United Arab Emirates is 30.6894 and 8639 respectively, and for Singapore, it is 9.6409 and 3838 as shown in Table \@ref(tab:spg). Although both countries are in high income group, Singapore has a better performance from the tables.
+
+
+```{r uae, tab.cap = "The summary of UAE",echo = FALSE}
+summary_uae <- section3_uae %>% 
+  dplyr::select(CO2_emissions_metric_tons_per_capita,
+                Energy_use_kg_of_oil_equivalent_per_capita) %>%
+  summary() %>% 
+  knitr::kable(caption = "The summary of UAE") %>%
+  kable_styling(latex_options = "hold_position")
+summary_uae
+```
+
+  
+```{r spg,tab.caption = "The summary of SGP", echo = FALSE}
+summary_sgp <- section3_sgp %>% select(CO2_emissions_metric_tons_per_capita,Energy_use_kg_of_oil_equivalent_per_capita) %>%
+  summary() %>% 
+  knitr::kable(caption = "The summary of SGP")  %>%
+  kable_styling(latex_options = "hold_position")
+
+summary_sgp
+```
+
+
+Figure analysis
+
+```{r plot library,echo = FALSE, message = FALSE, warning = FALSE}
+library(ggplot2)
+library(gridExtra)
+library(cowplot)
+```
+
+In Figure \ref{fig:uae-sgp-co2-pop}, Singapore had stable C02 emissions of under 20 metric tons per capita with a growing population over years, while UAE fluctuated wildly with a higher average emissions. It was up to 101.0517 in 1969 with a low population, and fortunately kept dropping after that.
+\begin{figure}[H]
+\includegraphics[width=7in, height = 4in]{Figures/uae-sgp-co2-pop-1}
+\caption{population and co2 emissions relationship}
+\label{fig:uae-sgp-co2-pop}
+\end{figure}
+
+```{r uae-sgp-pop-co2,echo = FALSE, message = FALSE, warning = FALSE}
+p1 = ggplot(section3_uae) + 
+  geom_col(aes(x = Year, 
+               y = Urban_population), size = 1) +
+  geom_line(aes(x = Year, 
+                y = 50000*CO2_emissions_metric_tons_per_capita), size = 1, color="green", group = 1) + 
+  scale_y_continuous(sec.axis = sec_axis(~./50000, name = "CO2_emissions_metric_tons_per_capita"))+
+  ggtitle("UAE")
+
+p2 = ggplot(section3_sgp) + 
+  geom_col(aes(x = Year, 
+               y = Urban_population), size = 1) +
+  geom_line(aes(x = Year, 
+                y = 50000*CO2_emissions_metric_tons_per_capita), size = 1, color="green", group = 1) + 
+  scale_y_continuous(sec.axis = sec_axis(~./50000, name = "CO2_emissions_metric_tons_per_capita"))+
+  ggtitle("SGP")
+
+plot_row_1 <- plot_grid(p1,p2)
+```
+
+```{r uae-sgp-co2-pop,fig.cap = "population and co2 emissions relationship", include = FALSE}
+
+title_co2 <- ggdraw() + 
+  draw_label("Relationship between population(bar) and co2 emissions(line)",
+             fontface = 'bold', x = 0,hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+plot_grid(title_co2, plot_row_1,ncol = 1,rel_heights = c(0.1, 1))
+```
+
+In Figure \ref{fig:uae-sgp-energy-pop}, UAE has a higher energy use than Singapore and a smaller size of population. Increase and decrease sharply appears in both countries but the trend of Singapore is relatively less smooth than UAE’s.
+\begin{figure}[H]
+\includegraphics[width=7in, height = 3in]{Figures/uae-sgp-energy-pop-1}
+\caption{population and energy use relationship}
+\label{fig:uae-sgp-energy-pop}
+\end{figure}
+
+```{r uae-sgp-pop-energy,echo = FALSE, message = FALSE, warning = FALSE,include = FALSE}
+p3 = ggplot(section3_uae) + 
+  geom_col(aes(x = Year, 
+               y = Urban_population), size = 1) +
+  geom_line(aes(x = Year, 
+                y = 1000*Energy_use_kg_of_oil_equivalent_per_capita), size = 1, color="blue", group = 1) + 
+  scale_y_continuous(sec.axis = sec_axis(~./1000, name = "Energy_use_kg_of_oil_equivalent_per_capita"))+
+  ggtitle("UAE")
+
+p4 = ggplot(section3_sgp) + 
+  geom_col(aes(x = Year, 
+               y = Urban_population), size = 1) +
+  geom_line(aes(x = Year, 
+                y = 1000*Energy_use_kg_of_oil_equivalent_per_capita), size = 1, color="blue", group = 1) + 
+  scale_y_continuous(sec.axis = sec_axis(~./1000, name = "Energy_use_kg_of_oil_equivalent_per_capita"))+
+  ggtitle("SGP")
+
+plot_row_2 <- plot_grid(p3,p4)
+```
+
+
+```{r uae-sgp-energy-pop,echo = FALSE,fig.align = "center", fig.width = 6, fig.cap = "population and energy use relationship",include = FALSE, message = FALSE, warning = FALSE}
+
+title_energy <- ggdraw() + 
+  draw_label("Relationship between population(bar) and energy use(line)",
+             fontface = 'bold', x = 0,hjust = 0) +
+  theme(plot.margin = margin(0, 0, 0, 7))
+
+plot_grid(title_energy, plot_row_2,ncol = 1,rel_heights = c(0.1, 1))
+```
+Both CO2 emissions and energy use trend of two countries will be discuss with the following figure.
+\begin{figure}[H]
+\includegraphics[width=7in, height = 4in]{Figures/uae-sgp-trend-1}
+\caption{Trend of co2 emission and energy use}
+\label{fig:uae-sgp-trend}
+\end{figure}
+
+```{r legend,echo = FALSE, message = FALSE, warning = FALSE}
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+```
+
+```{r uae-sgp-trend-plot,include = FALSE, message = FALSE, warning = FALSE}
+p5 = ggplot(section3_uae_sgp) +
+  geom_line(mapping = aes(x=Year, 
+                          y=CO2_emissions_metric_tons_per_capita, 
+                          colour = Country_Name)) +
+  scale_x_continuous() +
+  ggtitle("co2 emission trend")
+
+p6 = ggplot(section3_uae_sgp) +
+  geom_path(mapping = aes(x=Year, 
+                          y=Energy_use_kg_of_oil_equivalent_per_capita, 
+                          colour = Country_Name, width = 0.1)) +
+  scale_alpha_continuous() +
+  theme(legend.position = "none") +
+  ggtitle("energy use trend")
+  
+legend <- get_legend(p5)
+p5 <- p5 + theme(legend.position="none")
+```
+
+The co2 emissions was up to 101.05 metric tons per capita in 1969, this might be due to oil commencmment of oil exports from 1962, and also the flight service operations in Dubai, especially for the private jets @reuters_2010. From Figure \ref{fig:uae-sgp-trend}, Singapore performed better than UAE in either of the trend of CO2 emissions or energy usage as Singapore's trend is much smaller. 
+
+
+```{r uae-sgp-trend,echo = FALSE,fig.align = "center", fig.width = 6, fig.cap = "Trend of co2 emission and energy use",include = FALSE, message = FALSE, warning = FALSE}
+grid.arrange(p5,p6,legend,
+             ncol=2, nrow = 2, 
+             layout_matrix = rbind(c(1,2), c(3,3)),
+             widths = c(1, 1), heights = c(1, 0.2))
+
+```
+
+\addcontentsline{toc}{subsection}{Conclusion}
+\subsection*{Conclusion}
+
+In conclusion, all countries must gear up and implement strategies for climate action to make this world a better place. We say, save green, breathe pure, eat clean and live bonjour!!!
+
+\newpage
+
+\subsection*{R Packages}
+@R-base
+
+@R-bookdown
+@R-citation
+@R-dplyr,
+ 
+
+@R-forcats,
+ 
+
+@R-ggplot2,
+  
+
+@R-kableExtra,
+ 
+@R-knitr,
+ 
+
+@R-naniar,
+ 
+@R-patchwork,
+
+
+@R-purrr,
+
+
+@R-readr,
+  
+
+@R-scales,
+  
+
+@R-stringr,
+ 
+
+@R-tibble,
+  
+@R-tidyr,
+ 
+@R-tidyverse,
+  
+
+@R-tinytex,
+ 
+
+@R-visdat,
+ 
+@bookdown2016,
+  
+
+@ggplot22016,
+ 
+
+@knitr2015,
+ 
+
+@knitr2014,
+ 
+
+@tidyverse2019,
+ 
+
+@tinytex2019,
+  
+
+@visdat2017
+ 
+
+```{r ref.label=knitr::all_labels(), echo=FALSE, eval=FALSE}
+
+```
